@@ -1,4 +1,5 @@
 //! Main executable for the CLI.
+#![allow(clippy::print_stdout)]
 
 use clap::Parser;
 use error_stack::Report;
@@ -9,5 +10,6 @@ fn main() -> Result<(), Report<Error>> {
 	let cli = Cli::parse();
 	let converter = cli.into_converter()?;
 	converter.execute()?;
+	println!();
 	Ok(())
 }

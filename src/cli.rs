@@ -35,10 +35,10 @@ pub struct Cli {
 #[derive(Debug, Args)]
 #[group(required = false, multiple = false)]
 struct ConversionDirectionArgs {
-	/// Set the direction of conversion to "MsgPack to JSON".
+	/// Convert MsgPack to JSON.
 	#[arg(long = "m2j")]
 	msgpack2json: bool,
-	/// Set the direction of conversion to "JSON to MsgPack".
+	/// Convert JSON to MsgPack.
 	#[arg(long = "j2m")]
 	json2msgpack: bool,
 }
