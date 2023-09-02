@@ -78,17 +78,20 @@ where
 		drop(cursor);
 
 		match (res_msgpack, res_json) {
-			(Ok(_), Ok(_)) => return Err(report!(Error::AutomaticDetection)),
+			// Both errored, no convertion possible.
 			(Err(err1), Err(err2)) => {
 				let mut error = report!(Error::AutomaticDetection);
 				error.extend_one(err1);
 				error.extend_one(err2);
 				return Err(error);
 			}
-			(Ok(msgpack), _) => serde_json::to_writer_pretty(self.output, &msgpack)
-				.change_context(Error::WritingJson)?,
+			// If both succeed, still use JSON as input, as MsgPack might succeed for almost
+			// anything?
 			(_, Ok(json)) => rmp_serde::encode::write_named(&mut self.output, &json)
 				.change_context(Error::WritingMsgPack)?,
+			// Only MsgPack succeeded, so it is the one we attempt to use.
+			(Ok(msgpack), _) => serde_json::to_writer_pretty(self.output, &msgpack)
+				.change_context(Error::WritingJson)?,
 		}
 
 		Ok(())
