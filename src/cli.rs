@@ -63,9 +63,14 @@ impl TryFrom<ConversionDirectionArgs> for ConversionDirection {
 impl Cli {
 	/// Use the input configuration to construct the execution converter.
 	pub fn into_converter(self) -> Result<Converter, Report<Error>> {
-		let direction = self.direction.try_into()?;
+		let mut direction = self.direction.try_into()?;
 
 		let input: Box<dyn Read> = if let Some(input_file) = self.input {
+			// Use input file name as solid clue of input format.
+			if direction == ConversionDirection::Auto && input_file.ends_with(".json") {
+				direction = ConversionDirection::Json2MsgPack;
+			}
+
 			let file = File::open(input_file).change_context(Error::FileRead)?;
 			Box::new(BufReader::new(file))
 		} else {

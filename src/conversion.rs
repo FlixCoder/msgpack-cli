@@ -2,10 +2,10 @@
 
 use std::{
 	fmt::Debug,
-	io::{Read, Write},
+	io::{Cursor, Read, Write},
 };
 
-use error_stack::Report;
+use error_stack::{report, Report, ResultExt};
 
 use crate::Error;
 
@@ -44,8 +44,54 @@ impl Converter {
 	}
 
 	/// Execute the conversion.
-	pub fn execute(self) -> Result<(), Report<Error>> {
-		todo!()
+	pub fn execute(mut self) -> Result<(), Report<Error>> {
+		match self.direction {
+			ConversionDirection::Auto => self.automatic_conversion()?,
+			ConversionDirection::MsgPack2Json => {
+				let value = rmpv::decode::read_value(&mut self.input)
+					.change_context(Error::ReadingMsgPack)?;
+				serde_json::to_writer_pretty(self.output, &value)
+					.change_context(Error::WritingJson)?;
+			}
+			ConversionDirection::Json2MsgPack => {
+				let value: serde_json::Value =
+					serde_json::from_reader(self.input).change_context(Error::ReadingJson)?;
+				rmp_serde::encode::write_named(&mut self.output, &value)
+					.change_context(Error::WritingMsgPack)?;
+			}
+		}
+		Ok(())
+	}
+
+	/// Execute automatically detected conversion. This reads the full input
+	/// until the end and attempts to deserialize with both deserializers.
+	fn automatic_conversion(mut self) -> Result<(), Report<Error>> {
+		let mut data = Vec::new();
+		self.input.read_to_end(&mut data).change_context(Error::FileRead)?;
+
+		let res_json =
+			serde_json::from_slice::<serde_json::Value>(&data).change_context(Error::ReadingJson);
+
+		let mut cursor = Cursor::new(data);
+		let res_msgpack =
+			rmpv::decode::read_value(&mut cursor).change_context(Error::ReadingMsgPack);
+		drop(cursor);
+
+		match (res_msgpack, res_json) {
+			(Ok(_), Ok(_)) => return Err(report!(Error::AutomaticDetection)),
+			(Err(err1), Err(err2)) => {
+				let mut error = report!(Error::AutomaticDetection);
+				error.extend_one(err1);
+				error.extend_one(err2);
+				return Err(error);
+			}
+			(Ok(msgpack), _) => serde_json::to_writer_pretty(self.output, &msgpack)
+				.change_context(Error::WritingJson)?,
+			(_, Ok(json)) => rmp_serde::encode::write_named(&mut self.output, &json)
+				.change_context(Error::WritingMsgPack)?,
+		}
+
+		Ok(())
 	}
 }
 
