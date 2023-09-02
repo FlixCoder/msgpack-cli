@@ -2,10 +2,12 @@
 
 use std::{
 	fmt::Debug,
-	io::{Cursor, Read, Write},
+	io::{Read, Write},
 };
 
 use error_stack::{report, Report, ResultExt};
+use rmp_serde::config::{DefaultConfig, StructMapConfig};
+use serde_json::ser::PrettyFormatter;
 
 use crate::Error;
 
@@ -48,16 +50,16 @@ where
 		match self.direction {
 			ConversionDirection::Auto => self.automatic_conversion()?,
 			ConversionDirection::MsgPack2Json => {
-				let value = rmpv::decode::read_value(&mut self.input)
-					.change_context(Error::ReadingMsgPack)?;
-				serde_json::to_writer_pretty(&mut self.output, &value)
-					.change_context(Error::WritingJson)?;
+				let mut deserializer = msgpack_deserializer(self.input);
+				let mut serializer = json_serializer(&mut self.output);
+				serde_transcode::transcode(&mut deserializer, &mut serializer)
+					.change_context(Error::Transcoding)?;
 			}
 			ConversionDirection::Json2MsgPack => {
-				let value: serde_json::Value =
-					serde_json::from_reader(self.input).change_context(Error::ReadingJson)?;
-				rmp_serde::encode::write_named(&mut self.output, &value)
-					.change_context(Error::WritingMsgPack)?;
+				let mut deserializer = json_deserializer(self.input);
+				let mut serializer = msgpack_serializer(&mut self.output);
+				serde_transcode::transcode(&mut deserializer, &mut serializer)
+					.change_context(Error::Transcoding)?;
 			}
 		}
 		self.output.write(&[b'\n']).change_context(Error::FileWrite)?;
@@ -65,38 +67,62 @@ where
 	}
 
 	/// Execute automatically detected conversion. This reads the full input
-	/// until the end and attempts to deserialize with both deserializers.
+	/// until the end and attempts to transcode JSON to MsgPack first, then try
+	/// the other way if it did not work.
 	fn automatic_conversion(&mut self) -> Result<(), Report<Error>> {
 		let mut data = Vec::new();
 		self.input.read_to_end(&mut data).change_context(Error::FileRead)?;
+		let mut error = report!(Error::AutomaticDetection);
 
-		let res_json =
-			serde_json::from_slice::<serde_json::Value>(&data).change_context(Error::ReadingJson);
+		// Try JSON to MsgPack first.
+		let mut output = Vec::new();
+		let mut deserializer = json_deserializer(data.as_slice());
+		let mut serializer = msgpack_serializer(&mut output);
+		let res = serde_transcode::transcode(&mut deserializer, &mut serializer)
+			.change_context(Error::Transcoding);
+		match res {
+			Ok(_) => return self.output.write_all(&output).change_context(Error::FileWrite),
+			Err(err) => error.extend_one(err),
+		}
+		drop(output); // Drop, we will write directly to the output, otherwise we would clear it.
 
-		let mut cursor = Cursor::new(data);
-		let res_msgpack =
-			rmpv::decode::read_value(&mut cursor).change_context(Error::ReadingMsgPack);
-		drop(cursor);
-
-		match (res_msgpack, res_json) {
-			// Both errored, no convertion possible.
-			(Err(err1), Err(err2)) => {
-				let mut error = report!(Error::AutomaticDetection);
-				error.extend_one(err1);
-				error.extend_one(err2);
-				return Err(error);
-			}
-			// If both succeed, still use JSON as input, as MsgPack might succeed for almost
-			// anything?
-			(_, Ok(json)) => rmp_serde::encode::write_named(&mut self.output, &json)
-				.change_context(Error::WritingMsgPack)?,
-			// Only MsgPack succeeded, so it is the one we attempt to use.
-			(Ok(msgpack), _) => serde_json::to_writer_pretty(&mut self.output, &msgpack)
-				.change_context(Error::WritingJson)?,
+		// It did not work, try MsgPack to JSON now.
+		let mut deserializer = msgpack_deserializer(data.as_slice());
+		let mut serializer = json_serializer(&mut self.output);
+		let res = serde_transcode::transcode(&mut deserializer, &mut serializer)
+			.change_context(Error::Transcoding);
+		match res {
+			Ok(_) => return Ok(()),
+			Err(err) => error.extend_one(err),
 		}
 
-		Ok(())
+		// This didn't work either, return the error.
+		Err(error)
 	}
+}
+
+/// Construct a MsgPack Deserializer.
+fn msgpack_deserializer<R: Read>(
+	reader: R,
+) -> rmp_serde::Deserializer<rmp_serde::decode::ReadReader<R>> {
+	rmp_serde::Deserializer::new(reader)
+}
+
+/// Construct a MsgPack Serializer.
+fn msgpack_serializer<W: Write>(
+	writer: W,
+) -> rmp_serde::Serializer<W, StructMapConfig<DefaultConfig>> {
+	rmp_serde::Serializer::new(writer).with_struct_map()
+}
+
+/// Construct a JSON Deserializer.
+fn json_deserializer<R: Read>(reader: R) -> serde_json::Deserializer<serde_json::de::IoRead<R>> {
+	serde_json::Deserializer::from_reader(reader)
+}
+
+/// Construct a JSON Serializer.
+fn json_serializer<W: Write>(writer: W) -> serde_json::Serializer<W, PrettyFormatter<'static>> {
+	serde_json::Serializer::pretty(writer)
 }
 
 impl<I, O> Debug for Converter<I, O> {

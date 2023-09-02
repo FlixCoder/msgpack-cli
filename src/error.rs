@@ -20,17 +20,7 @@ pub enum Error {
 	#[error("Failed automatic converstion direction detection")]
 	AutomaticDetection,
 
-	/// Error reading MessagePack data.
-	#[error("Error reading MessagePack")]
-	ReadingMsgPack,
-	/// Error writing MessagePack data.
-	#[error("Error writing MessagePack")]
-	WritingMsgPack,
-
-	/// Error reading JSON data.
-	#[error("Error reading JSON")]
-	ReadingJson,
-	/// Error writing JSON data.
-	#[error("Error writing JSON")]
-	WritingJson,
+	/// Error transcoding the data between formats.
+	#[error("Error transcoding between data formats")]
+	Transcoding,
 }
