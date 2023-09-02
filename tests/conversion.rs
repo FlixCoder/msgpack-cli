@@ -1,7 +1,7 @@
 use std::f64::consts::PI;
 
 use error_stack::{Report, ResultExt};
-use msgpack_cli::{ConversionDirection, Converter};
+use messagepack_cli::{ConversionDirection, Converter};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

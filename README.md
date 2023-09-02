@@ -1,4 +1,4 @@
-# MsgPack CLI
+# MessagePack CLI
 
 Small and simple CLI tool to convert MessagePack data to JSON and vice versa.
 
@@ -22,6 +22,8 @@ $ mpc --m2j -i test.msgpack
 ## Installation
 
 ```bash
+cargo install messagepack-cli
+# or
 cargo install --git https://github.com/FlixCoder/msgpack-cli
 ```
 

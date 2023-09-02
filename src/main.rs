@@ -3,7 +3,7 @@
 
 use clap::Parser;
 use error_stack::Report;
-use msgpack_cli::{Cli, Error};
+use messagepack_cli::{Cli, Error};
 
 /// Execute the CLI.
 fn main() -> Result<(), Report<Error>> {
