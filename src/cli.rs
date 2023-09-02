@@ -11,6 +11,9 @@ use error_stack::{report, Report, ResultExt};
 
 use crate::{conversion::ConversionDirection, Converter, Error};
 
+/// Converter type with dynamic reader and writer.
+type DynamicConverter = Converter<Box<dyn Read>, Box<dyn Write>>;
+
 /// Simple CLI to convert MessagePack to JSON and vice versa. Automatically
 /// attempts to detect the input format and outputs the respective other format.
 /// Use the config options to override the automatic detection.
@@ -62,7 +65,7 @@ impl TryFrom<ConversionDirectionArgs> for ConversionDirection {
 
 impl Cli {
 	/// Use the input configuration to construct the execution converter.
-	pub fn into_converter(self) -> Result<Converter, Report<Error>> {
+	pub fn into_converter(self) -> Result<DynamicConverter, Report<Error>> {
 		let mut direction = self.direction.try_into()?;
 
 		let input: Box<dyn Read> = if let Some(input_file) = self.input {
@@ -85,5 +88,17 @@ impl Cli {
 		};
 
 		Ok(Converter::new(input, output, direction))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use clap::CommandFactory;
+
+	use super::Cli;
+
+	#[test]
+	fn cli() {
+		Cli::command().debug_assert();
 	}
 }

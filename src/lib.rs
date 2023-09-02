@@ -3,7 +3,9 @@
 mod cli;
 mod conversion;
 mod error;
-#[cfg(test)]
-mod tests;
 
-pub use self::{cli::Cli, conversion::Converter, error::Error};
+pub use self::{
+	cli::Cli,
+	conversion::{ConversionDirection, Converter},
+	error::Error,
+};

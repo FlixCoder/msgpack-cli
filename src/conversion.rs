@@ -22,25 +22,25 @@ pub enum ConversionDirection {
 
 /// Converter instance, owning a [`Read`]er and a [`Write`]r to input and output
 /// the data.
-pub struct Converter {
+pub struct Converter<I, O> {
 	/// Source of input data.
-	input: Box<dyn Read>,
+	input: I,
 	/// Sink of output data.
-	output: Box<dyn Write>,
+	output: O,
 	/// Direction of conversion.
 	direction: ConversionDirection,
 }
 
-impl Converter {
+impl<I, O> Converter<I, O>
+where
+	I: Read,
+	O: Write,
+{
 	/// Create new converter instance given input, output and conversion
 	/// direction.
 	#[must_use]
-	pub fn new(
-		input: impl Into<Box<dyn Read>>,
-		output: impl Into<Box<dyn Write>>,
-		direction: ConversionDirection,
-	) -> Self {
-		Self { input: input.into(), output: output.into(), direction }
+	pub fn new(input: I, output: O, direction: ConversionDirection) -> Self {
+		Self { input, output, direction }
 	}
 
 	/// Execute the conversion.
@@ -95,7 +95,7 @@ impl Converter {
 	}
 }
 
-impl Debug for Converter {
+impl<I, O> Debug for Converter<I, O> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Converter")
 			.field("input", &"<redacted>")
