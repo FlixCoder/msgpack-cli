@@ -1,7 +1,17 @@
 [package]
-name = "messagepack-cli"
-version = "0.1.0"
+authors = ["Flix <felix.dommes@rwth-aachen.de>"]
+categories = ["command-line-utilities", "encoding"]
+description = "CLI tool to convert MessagePack data to JSON and vice versa."
+documentation = "https://github.com/FlixCoder/msgpack-cli"
 edition = "2021"
+homepage = "https://github.com/FlixCoder/msgpack-cli"
+keywords = ["msgpack", "json", "cli"]
+license = "MIT"
+name = "messagepack-cli"
+readme = "README.md"
+repository = "https://github.com/FlixCoder/msgpack-cli"
+resolver = "2"
+version = "0.1.0"
 
 [[bin]]
 name = "mpc"
