@@ -10,6 +10,5 @@ fn main() -> Result<(), Report<Error>> {
 	let cli = Cli::parse();
 	let converter = cli.into_converter()?;
 	converter.execute()?;
-	println!();
 	Ok(())
 }

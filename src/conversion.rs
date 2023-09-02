@@ -50,7 +50,7 @@ where
 			ConversionDirection::MsgPack2Json => {
 				let value = rmpv::decode::read_value(&mut self.input)
 					.change_context(Error::ReadingMsgPack)?;
-				serde_json::to_writer_pretty(self.output, &value)
+				serde_json::to_writer_pretty(&mut self.output, &value)
 					.change_context(Error::WritingJson)?;
 			}
 			ConversionDirection::Json2MsgPack => {
@@ -60,12 +60,13 @@ where
 					.change_context(Error::WritingMsgPack)?;
 			}
 		}
+		self.output.write(&[b'\n']).change_context(Error::FileWrite)?;
 		Ok(())
 	}
 
 	/// Execute automatically detected conversion. This reads the full input
 	/// until the end and attempts to deserialize with both deserializers.
-	fn automatic_conversion(mut self) -> Result<(), Report<Error>> {
+	fn automatic_conversion(&mut self) -> Result<(), Report<Error>> {
 		let mut data = Vec::new();
 		self.input.read_to_end(&mut data).change_context(Error::FileRead)?;
 
@@ -90,7 +91,7 @@ where
 			(_, Ok(json)) => rmp_serde::encode::write_named(&mut self.output, &json)
 				.change_context(Error::WritingMsgPack)?,
 			// Only MsgPack succeeded, so it is the one we attempt to use.
-			(Ok(msgpack), _) => serde_json::to_writer_pretty(self.output, &msgpack)
+			(Ok(msgpack), _) => serde_json::to_writer_pretty(&mut self.output, &msgpack)
 				.change_context(Error::WritingJson)?,
 		}
 
